@@ -137,7 +137,7 @@ Let's see *snakeline* in action with some decorations:
 
 When creating snakelines dynamically, I'll start from 0-dimension 
 and add a component on demand. Let the elementary component 
-consist of one orthogonal line and one arc. When mouse is pressed 
+consist of two orthogonal lines and one arc. When mouse is pressed 
 we'll register the starting point and add first component:
 
 	comp: ['hline 0 'arc 1x0 1 1 0 'vline 0]
