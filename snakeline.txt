@@ -1,0 +1,328 @@
+Manipulating snakey lines
+
+===Basics
+
+By "snakey lines" I mean orthogonal lines connected by 90 degree arcs.
+
+I'll use `shape` dialect for this, although it could be done in plain `draw`
+too, but with more hassle.
+
+Also, I'll use a face for each snakeline, to get more easy access to these,
+but they can be drawn on single face too of course.
+
+---Elements
+
+First, we need a starting point. This is set by `move`. 
+`hline` and `vline` of `shape` dialect are trivial:
+
+	view [
+		box draw [
+			shape [
+				move 0x0 
+				'hline 50 
+				'vline 50 
+				move 0x0
+			]
+		]
+	]
+
+!Note: To execute the code click on it. To open code for editing and playing with,
+ctrl-click on it.
+
+The second `move` in the end is needed to avoid drawing line from the end-point to the beginning.
+Notice also that except for `move` I use relative commands, starting with apostrophe. 
+
+===Shape's arc
+
+`arc` is much more interesting beast to master. Here is a very short 
+description of relative `'arc` as used in this article.
+
+To understand how `arc` in `shape` dialect is drawn you have to imagine
+an ellipse of which the arc will be a sector. First argument to `'arc`
+is `pair!` which determines the end-point of the arc relative to current 
+position. Then follow two integers, x- and y-radius of the underlying 
+ellipse respectively. Next is integer determining the rotation angle of 
+the ellipse. And then there may occur one or two words, `sweep` and `large`.
+If `sweep` is present, arc will be draw in clockwise direction, if not -
+counter-clockwise. If `large` is present, larger part of arc is drawn, 
+if not - smaller. "Larger" or "smaller" are understood in comparison to 
+the whole ellipse of which given arc is a sector. With these arguments 
+determined the underlying ellipse is rotated and shifted in such a manner 
+that the arc specification is satisfied.
+
+Now, let's draw an elementary snakeline with a nice round arc:
+
+	view [
+		box draw [
+			shape [
+				move 0x0 
+				'hline 50 
+				'arc 10x10 10 10 0 sweep 
+				'vline 50 
+				move 0x0
+			]
+		]
+	]
+
+===Arbitrary snakelines
+
+To make it easy to generate arbitrary snakelines, we'll write a function with arguments determining
+line-segments and arc-radius:
+
+	context [
+		line2: l2: none
+		set 'snakeline func [lines radius /vertical /local line1 l1 a1 a2][
+			collect [
+				forall lines [
+					either 1 < length? lines [
+						set [line1 line2] pick [
+							['vline 'hline]
+							['hline 'vline]
+						] to-logic any [
+							all [vertical odd? index? lines]
+							all [not vertical even? index? lines]
+						]
+						l1: lines/1 l2: lines/2
+						either line1 = 'hline [
+							a1: either negative? l1 [negate radius][radius]
+							a2: either negative? l2 [negate radius][radius]
+						][
+							a1: either negative? l2 [negate radius][radius]
+							a2: either negative? l1 [negate radius][radius]
+						]
+						keep line1 keep l1
+						keep ['arc] keep as-pair a1 a2
+						keep radius keep radius keep 0
+						if any [
+							all [line1 = 'hline (a1 / radius) = (a2 / radius)]
+							all [line1 = 'vline (a1 / radius) <> (a2 / radius)]
+						][keep 'sweep]
+					][
+						keep line2 keep l2
+					]
+				]
+			]
+		]
+	]
+	
+===Snakelines formatted
+
+Let's see *snakeline* in action with some decorations:
+
+	body: snakeline [10 5 5 -1 1 13 -3 3 3] 20
+	right-eye: copy left-eye: [fill-pen yello circle 115x108 2]
+	right-eye/4/y: left-eye/4/y + 10
+	tongue: [
+		fill-pen red line-width 1 shape [
+			move 122x113 
+			'arc 10x-4 15 10 0 
+			'line -3x4 
+			'line 4x0 
+			'arc -11x2 13 4 0 sweep 
+		]
+	]
+	snake: compose/deep [
+		size 200x200 at 30x30 box 150x150 draw [
+			pen gray line-width 25 line-cap round
+			shape [move 13x13 (body) move 13x13]
+			pen off	(left-eye) (right-eye)
+			(tongue)
+		]
+	]
+	view snake
+
+!Note: "Arbitrary snakelines" code should be activated (/ie/ clicked) before this one.
+
+===Dynamic creation
+
+When creating snakelines dynamically, I'll start from 0-dimension 
+and add a component on demand. Let the elementary component 
+consist of one orthogonal line and one arc. When mouse is pressed 
+we'll register the starting point and add first component:
+
+	comp: ['hline 0 'arc 1x0 1 1 0 'vline 0]
+	start-segment: [
+		start: event/offset 
+		starting: yes
+		len: 9
+		last-sector: 1x-1
+		horizontal?: yes
+		append face/pane layout/only compose/deep [
+			at 0x0 box (face/size) draw [
+				fill-pen off pen gray line-width 5 
+				line-cap round line-join round
+				shape [move (start) (comp) move (start)]
+			]
+		]
+	]
+	view compose/only [on-down (start-segment)]
+
+Further, when mouse is moved we'll resize the component. First, 
+we need easy access to the current segment:
+
+	get-segment: function [face dir][ ; probe print
+		idx: length? face/pane
+		find/last face/pane/:idx/draw/shape dir
+	]
+
+Then we need to decide whether to start drawing vertically or horizontally.
+We'll decide it just on first movement of mouse. Default is horizontal:
+
+	init: func [face][
+		segment: get-segment face 'hline
+		if diff/y <> 0 [
+			segment/1: quote 'vline
+			segment/8: quote 'hline
+			horizontal?: no
+			last-sector: 1x1
+		]
+		starting: no
+	]
+
+===Dynamic creation (2)
+
+Then we need to know in which sector we are:
+
+	select-sector: func [diff][
+		case [
+			diff/x = 0 [as-pair 1 diff/y / absolute diff/y]
+			diff/y = 0 [as-pair diff/x / absolute diff/x 1]
+			true [diff / absolute diff]
+		]
+	]
+
+And when we are switching sectors we need to insert and remove `sweep` 
+to alternatively turn the arc clockwise and counterclockwise:
+
+	adjust-sweep: [
+		case [
+			any [
+				all [
+					horizontal? 
+					find [1x-1 -1x1] last-sector 
+					find [1x1 -1x-1] sector
+				]
+				all [
+					not horizontal? 
+					find [1x1 -1x-1] last-sector 
+					find [1x-1 -1x1] sector
+				]
+			][insert at segment 8 'sweep len: 10]
+			any [
+				all [
+					horizontal? 
+					find [1x-1 -1x1] sector 
+					find [1x1 -1x-1] last-sector
+				]
+				all [
+					not horizontal? 
+					find [1x1 -1x-1] sector 
+					find [1x-1 -1x1] last-sector
+				]
+			][remove at segment 8 len: 9]
+		]
+		last-sector: sector
+	]
+
+===Dynamic creation (3)
+
+When new component is initiated we need to continually adjust its shape:
+
+	continue: func [event] [
+		segment/4: sector * to-pair radius 		; arc end-point
+		segment/5: segment/6: radius
+		line: diff - segment/4
+		if last-sector <> sector adjust-sweep
+		either horizontal? [
+			segment/2: line/x
+			segment/:len: line/y
+		][
+			segment/2: line/y
+			segment/:len: line/x
+		]
+	]
+
+And here is finally the whole drawing function for the first part 
+of the snakeline:
+
+	draw-segment: [
+		if all [
+			event/down? 
+			0x0 <> (diff: event/offset - start)
+		][
+			sector: select-sector diff
+			radius: min absolute diff/x absolute diff/y
+			either starting [init face] [continue event]
+		]
+	]
+
+Let's view now what we have so far:
+
+	view/flags compose/only [
+		size 300x300
+		on-down (start-segment)
+		on-over (draw-segment)
+	] 'all-over
+
+!Note: For `view` to work all block and functions used by it should be activated (/ie/ clicked) first.
+
+===Multiple segments
+
+Currently we can add just one segment and manipulate it. 
+Now we'd like to add other segments to draw continuous curve composed
+of arcs and orthogonal lines. First let's define a proto-segment: 
+
+	proto: ['arc 1x0 1 1 0 'hline 0]
+
+Differently from starting segment it has two elements, because we'll 
+reuse the last element of previous segment too. We'll also need a flag
+`add?` to enable-disable new element addition. To add a new element 
+we can use different methods. I chose pressing space-bare as a trigger.
+
+Also, I'll use `starts` and `state` blocks to track the points where new
+segments are introduced, and if needed to restore the previous state by 
+deleting the latest added segment by pressing `ESC` key.
+
+	add?: yes
+	starts: clear []
+	state: [start last-sector horizontal?]
+	add-segment: [
+		case [
+			all [add? event/key = space] [
+				segment: skip tail segment -4
+				insert at segment 3 proto
+				len: 9
+				repend starts state
+				either segment/1 = 'hline [
+					start: event/offset - as-pair segment/2 0
+					last-sector: 1x-1
+					horizontal?: yes
+					segment/8: quote 'vline
+				][
+					start: event/offset - as-pair 0 segment/2
+					last-sector: 1x1
+					horizontal?: no
+				]
+				add?: no
+			]
+			event/key = escape [
+				remove/part at segment 3 find/last segment 'move
+				set state take/last/part starts 3
+				diff: event/offset - start
+				segment: skip find/reverse segment 'arc -2
+				len: pick [10 9] segment/8 = 'sweep
+			]
+		]
+	]
+
+===Final snakeline
+
+	view/flags compose/only [
+		size 300x300
+		on-down (start-segment)
+		on-over (draw-segment)
+		on-key-down (add-segment)
+		on-key-up [add?: yes]
+	] 'all-over
+
+!Note: Again, to execute `view`, blocks and functions it depends on need to be activated first.
