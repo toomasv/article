@@ -264,7 +264,7 @@ Let's view now what we have so far:
 		on-over (draw-segment)
 	] 'all-over
 
-!Note: For `view` to work all block and functions used by it should be activated (/ie/ clicked) first.
+!Note: For `view` to work all blocks and functions used by it should be activated (/ie/ clicked) first.
 
 ===Multiple segments
 
