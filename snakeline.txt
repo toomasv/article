@@ -166,7 +166,7 @@ we need easy access to the current segment:
 	]
 
 Then we need to decide whether to start drawing vertically or horizontally.
-We'll decide it just on first movement of mouse. Default is horizontal:
+We'll decide it just on first movement of mouse. Default is horizontal (see `comp`):
 
 	init: func [face][
 		segment: get-segment face 'hline
