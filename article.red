@@ -1,7 +1,8 @@
 Red [
 	Title: "Red's Interactive Article"
 	Author: "Toomas Vooglaid"
-	Acknowledgement: {Code was initially adapted for Red from Carl Sassenrath's easy-VID (http://www.rebol.com/view/reb/easyvid.r)}
+	Acknowledgement: {Code was initially adapted for Red from Carl Sassenrath's 
+		easy-VID (http://www.rebol.com/view/reb/easyvid.r)}
 	Needs: 'View
 	Licence: "MIT"
 ]
